@@ -1,0 +1,14 @@
+# Het Bokkenrijdertje
+
+> Ambachtelijke bokkenpootjes van Ferre Vandael, verkocht vanuit een bakfiets (de "bokmobiel") op lokale marktjes, evenementen en bij bedrijven in Vlaams-Brabant, België.
+
+- Wat: bokkenpootjes, 2 knapperige koekjes gedipt in chocolade met daartussen een smeuïge crème.
+- Prijs: €1 per bokkenpootje, zakje 5+1 gratis. Bokkenpootjestaart (6 personen) op aanvraag.
+- Waar: op marktjes, evenementen en bij bedrijven. De actuele kalender staat op de homepage.
+- Contact: hetbokkenrijdertje@outlook.be, +32 470 99 64 47
+- Ondernemingsnummer: BE 1011.981.501
+- Lid van Straffe Streek: https://straffestreek.be/leden/het-bokkenrijdertje/
+
+## Pagina's
+
+- [Homepage](index.html): kalender, menu, mijn verhaal, blog, veelgestelde vragen en contact

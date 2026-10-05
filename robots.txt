@@ -1,0 +1,6 @@
+# Het Bokkenrijdertje
+# Zoekmachines en AI-assistenten zijn welkom.
+User-agent: *
+Allow: /
+
+Sitemap: https://joppe-rabijns-rc.github.io/bokkenrijder/sitemap.xml

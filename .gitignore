@@ -1,0 +1,5 @@
+.claude/
+.DS_Store
+# originele foto's; de site gebruikt de .webp-versies
+img/*.jpg
+!img/og.jpg
