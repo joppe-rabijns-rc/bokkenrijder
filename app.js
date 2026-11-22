@@ -101,7 +101,13 @@
   };
 
   /* ---------- Agenda ---------- */
-  const events = (window.EVENTS || [])
+  const site = window.SITE || {};
+  const showAgenda = site.show?.agenda !== false;
+  if (!showAgenda) {
+    // Inline style wins over the [hidden] toggles further down (next-chip).
+    $$('#agenda, a[href$="#agenda"]').forEach((el) => ((el.closest('li') || el).style.display = 'none'));
+  }
+  const events = (showAgenda ? site.events || [] : [])
     .filter((e) => daysUntil(parse(e.end || e.date)) >= 0)
     .sort((a, b) => parse(a.date) - parse(b.date));
 
@@ -220,75 +226,6 @@
       $('[data-upcoming-empty]').hidden = false;
       $('.upcoming__title').textContent = 'Geen evenementen gepland';
     }
-  }
-
-  /* ---------- Blog ----------
-     Overview lives on the homepage; each post opens on blog.html?post=<slug>. */
-  const posts = (window.POSTS || []).slice().sort((a, b) => parse(b.date) - parse(a.date));
-  const arrow = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10m0 0L9 4m4 4l-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const postUrl = (p) => `blog.html?post=${encodeURIComponent(p.slug)}`;
-  const postDate = (p) => `<time datetime="${esc(p.date)}">${esc(fmt(parse(p.date), { day: 'numeric', month: 'long', year: 'numeric' }))}</time>`;
-
-  const featured = (p) => `
-    <a class="post-feature" href="${postUrl(p)}">
-      <div class="post-feature__img"><img src="${esc(p.cover)}" alt="" loading="lazy"></div>
-      <div class="post-feature__text">
-        <div class="post-meta"><span class="post-meta__tag">${esc(p.tag)}</span>${postDate(p)}</div>
-        <h3>${esc(p.title)}</h3>
-        <p>${esc(p.excerpt)}</p>
-        <span class="link-arrow">Lees verder ${arrow}</span>
-      </div>
-    </a>`;
-  const rows = (list) => list.length ? `<ul class="post-list">${list.map((p) => `
-    <li><a class="post-row" href="${postUrl(p)}">
-      ${postDate(p)}
-      <span class="post-row__title">${esc(p.title)}</span>
-      <span class="post-row__tag">${esc(p.tag)}</span>
-      ${arrow}
-    </a></li>`).join('')}</ul>` : '';
-
-  const blogEl = $('[data-posts]');
-  if (blogEl) {
-    blogEl.innerHTML = posts.length ? featured(posts[0]) + rows(posts.slice(1)) : '<p>Nog geen berichten.</p>';
-  }
-
-  const article = $('[data-article]');
-  if (article) {
-    const slug = new URLSearchParams(location.search).get('post');
-    const p = posts.find((x) => x.slug === slug);
-    if (!p) { location.replace('index.html#blog'); return; }
-    document.title = `${p.title} — Het Bokkenrijdertje`;
-    const setMeta = (sel, val) => { const m = document.querySelector(sel); if (m) m.setAttribute('content', val); };
-    setMeta('meta[name="description"]', p.excerpt);
-    setMeta('meta[property="og:title"]', p.title);
-    setMeta('meta[property="og:description"]', p.excerpt);
-    addJsonLd({
-      '@context': 'https://schema.org',
-      '@type': 'BlogPosting',
-      headline: p.title,
-      description: p.excerpt,
-      datePublished: p.date,
-      image: new URL(p.cover, location.href).href,
-      mainEntityOfPage: location.href,
-      inLanguage: 'nl-BE',
-      author: { '@type': 'Person', name: 'Ferre Vandael' },
-      publisher: { '@type': 'Organization', name: 'Het Bokkenrijdertje', logo: { '@type': 'ImageObject', url: new URL('img/apple-touch-icon.png', location.href).href } },
-    });
-    const more = posts.filter((x) => x !== p);
-    article.innerHTML = `
-      <a class="back" href="index.html#blog"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13 8H3m0 0l4-4M3 8l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Alle berichten</a>
-      <header class="article__head intro">
-        <div class="post-meta"><span class="post-meta__tag">${esc(p.tag)}</span>${postDate(p)}</div>
-        <h1>${esc(p.title)}</h1>
-        <p class="lead">${esc(p.excerpt)}</p>
-      </header>
-      <div class="article__cover"><img src="${esc(p.cover)}" alt=""></div>
-      <div class="prose">${p.body}</div>
-      <div class="article__sign">
-        <img src="img/ferre.webp" alt="">
-        <div><b>Ferre Vandael</b><small>Het Bokkenrijdertje</small></div>
-      </div>
-      ${more.length ? `<div class="article__more"><h2>Meer berichten</h2>${rows(more)}</div>` : ''}`;
   }
 
   initStickers();

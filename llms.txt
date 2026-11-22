@@ -11,4 +11,4 @@
 
 ## Pagina's
 
-- [Homepage](index.html): kalender, menu, mijn verhaal, blog, veelgestelde vragen en contact
+- [Homepage](index.html): kalender, menu, mijn verhaal, veelgestelde vragen en contact

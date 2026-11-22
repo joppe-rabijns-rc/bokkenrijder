@@ -2,5 +2,6 @@
 # Zoekmachines en AI-assistenten zijn welkom.
 User-agent: *
 Allow: /
+Disallow: /admin.html
 
 Sitemap: https://joppe-rabijns-rc.github.io/bokkenrijder/sitemap.xml

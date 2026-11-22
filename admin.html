@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="nl-BE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Beheer — Het Bokkenrijdertje</title>
+<link rel="icon" type="image/png" sizes="48x48" href="img/favicon-48.png">
+<style>
+  :root { --yolk: #f0c330; --choc: #3d1a12; --muted: #6b4a3d; --rule: rgba(61, 26, 18, 0.16); --bg: #fff; --err: #b3261e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--choc); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 96px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 32px 0 12px; }
+  p.sub { margin: 0 0 24px; color: var(--muted); }
+  fieldset { border: 1px solid var(--rule); border-radius: 12px; padding: 16px; margin: 0 0 16px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+  input, select { font: inherit; color: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: #fff; min-width: 0; width: 100%; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--yolk); outline-offset: 1px; }
+  button { font: inherit; font-weight: 700; cursor: pointer; border: 0; border-radius: 999px; padding: 10px 18px; background: var(--yolk); color: var(--choc); }
+  button.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rule); }
+  button.x { padding: 6px 12px; background: transparent; color: var(--err); box-shadow: inset 0 0 0 1.5px var(--rule); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+  .row > label { flex: 1 1 200px; }
+  .switch { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--choc); font-weight: 600; }
+  .switch input { width: 22px; height: 22px; accent-color: var(--choc); }
+  .ev { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 14px; border: 1px solid var(--rule); border-radius: 12px; margin-bottom: 10px; }
+  .ev.past { opacity: 0.55; }
+  .ev .wide { grid-column: span 2; }
+  .ev .end { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: end; gap: 8px; }
+  .ev small { font-size: 12px; color: var(--muted); }
+  .bar { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--rule); padding: 12px 16px; display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  #msg { min-height: 1.5em; font-weight: 600; }
+  #msg.err { color: var(--err); }
+  .req::after { content: " *"; color: var(--err); }
+  @media (max-width: 520px) { .ev .wide { grid-column: auto; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Beheer</h1>
+  <p class="sub">Pas de kalender aan en klik op <b>Opslaan</b>. De site is binnen ongeveer 10 minuten bijgewerkt. <a href="./">Naar de site</a></p>
+
+  <fieldset>
+    <legend>GitHub-token</legend>
+    <div class="row">
+      <label>Token (blijft alleen op dit toestel bewaard)
+        <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      </label>
+      <button id="useToken" type="button">Gebruik token</button>
+      <button id="forget" type="button" class="ghost">Vergeet token</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Zichtbaarheid</legend>
+    <label class="switch"><input id="showAgenda" type="checkbox"> Kalender tonen op de site</label>
+  </fieldset>
+
+  <h2>Evenementen</h2>
+  <div id="events"></div>
+  <button id="add" type="button" class="ghost">+ Evenement</button>
+</main>
+
+<div class="bar">
+  <span id="msg" role="status"></span>
+  <button id="save" type="button" disabled>Opslaan</button>
+</div>
+
+<script>
+(() => {
+  const REPO = 'joppe-rabijns-rc/bokkenrijder';
+  const FILE = 'data.js';
+  const API = `https://api.github.com/repos/${REPO}/contents/${FILE}`;
+  const FIELDS = [
+    ['date', 'Datum', 'date', true], ['end', 'Tot (meerdaags)', 'date'], ['time', 'Uur', 'text'],
+    ['type', 'Soort', 'select'], ['title', 'Naam', 'text', true, 'wide'], ['town', 'Gemeente', 'text', true],
+    ['place', 'Plek', 'text'], ['note', 'Opmerking', 'text', false, 'wide'], ['link', 'Link', 'url', false, 'wide'],
+  ];
+  const TYPES = ['markt', 'event', 'bedrijf'];
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = { get: () => { try { return localStorage.getItem('gh-token') || ''; } catch { return ''; } },
+                  set: (v) => { try { v ? localStorage.setItem('gh-token', v) : localStorage.removeItem('gh-token'); } catch {} } };
+
+  let token = store.get();
+  let state = null; // { header, sha, data }
+  const say = (text, err = false) => { $('#msg').textContent = text; $('#msg').className = err ? 'err' : ''; };
+
+  // data.js = "<comments>window.SITE = {json};"
+  const parse = (text) => {
+    const at = text.indexOf('window.SITE');
+    const json = text.slice(text.indexOf('{', at), text.lastIndexOf('}') + 1);
+    return { header: text.slice(0, at), data: JSON.parse(json) };
+  };
+  const serialize = ({ header, data }) => `${header}window.SITE = ${JSON.stringify(data, null, 2)};\n`;
+  const b64ToText = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
+  const textToB64 = (text) => { let s = ''; new TextEncoder().encode(text).forEach((b) => (s += String.fromCharCode(b))); return btoa(s); };
+  const gh = (opts = {}) => fetch(API, { cache: 'no-store', ...opts, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) } });
+
+  async function load() {
+    say('Laden…');
+    try {
+      let text, sha = null;
+      if (token) {
+        const r = await gh();
+        if (r.status === 401 || r.status === 403) throw new Error('Token werkt niet (geen toegang tot de repo).');
+        if (!r.ok) throw new Error(`GitHub gaf fout ${r.status}.`);
+        const j = await r.json();
+        text = b64ToText(j.content); sha = j.sha;
+      } else {
+        text = await (await fetch(`${FILE}?t=${Date.now()}`, { cache: 'no-store' })).text();
+      }
+      state = { ...parse(text), sha };
+      state.data.show ||= {}; state.data.events ||= [];
+      render();
+      $('#save').disabled = !token;
+      say(token ? '' : 'Alleen lezen: vul eerst een token in om te kunnen opslaan.');
+    } catch (e) { say(e.message, true); }
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  function render() {
+    const { data } = state;
+    $('#showAgenda').checked = data.show.agenda !== false;
+    data.events.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+    $('#events').innerHTML = data.events.map((ev, i) => `
+      <div class="ev${(ev.end || ev.date) && (ev.end || ev.date) < today ? ' past' : ''}">
+        ${FIELDS.map(([k, label, type, req, cls]) => `<label class="${cls || ''}"><span class="${req ? 'req' : ''}">${label}</span>${type === 'select'
+          ? `<select data-i="${i}" data-k="${k}">${TYPES.map((t) => `<option${ev[k] === t ? ' selected' : ''}>${t}</option>`).join('')}</select>`
+          : `<input data-i="${i}" data-k="${k}" type="${type}" value="${esc(ev[k])}"${req ? ' required' : ''}>`}</label>`).join('')}
+        <div class="end"><small>${(ev.end || ev.date) && (ev.end || ev.date) < today ? 'Voorbij, verschijnt niet meer op de site' : ''}</small>
+          <button type="button" class="x" data-del="${i}" aria-label="Verwijder ${esc(ev.title || 'evenement')}">Verwijder</button></div>
+      </div>`).join('') || '<p class="sub">Nog geen evenementen.</p>';
+  }
+
+  $('#events').addEventListener('input', (e) => {
+    const { i, k } = e.target.dataset; if (i == null) return;
+    const v = e.target.value.trim();
+    if (v) state.data.events[i][k] = v; else delete state.data.events[i][k];
+  });
+  $('#events').addEventListener('click', (e) => {
+    const i = e.target.dataset.del; if (i == null) return;
+    const ev = state.data.events[i];
+    if (confirm(`"${ev.title || 'Dit evenement'}" verwijderen?`)) { state.data.events.splice(i, 1); render(); }
+  });
+  $('#add').addEventListener('click', () => {
+    state.data.events.push({ date: today, type: 'markt' }); render();
+    const last = $('#events .ev:last-child [data-k="title"]'); last?.focus();
+  });
+  $('#showAgenda').addEventListener('change', (e) => (state.data.show.agenda = e.target.checked));
+
+  $('#useToken').addEventListener('click', () => { token = $('#token').value.trim(); store.set(token); $('#token').value = ''; load(); });
+  $('#forget').addEventListener('click', () => { token = ''; store.set(''); load(); });
+
+  $('#save').addEventListener('click', async () => {
+    const bad = state.data.events.findIndex((ev) => !ev.date || !ev.title || !ev.town || (ev.end && ev.end < ev.date));
+    if (bad >= 0) {
+      say('Vul bij elk evenement datum, naam en gemeente in (en "tot" niet vóór de datum).', true);
+      $(`#events .ev:nth-child(${bad + 1}) input`)?.focus(); return;
+    }
+    $('#save').disabled = true; say('Opslaan…');
+    try {
+      const r = await gh({ method: 'PUT', body: JSON.stringify({ message: 'Kalender bijgewerkt via admin', content: textToB64(serialize(state)), sha: state.sha }) });
+      if (r.status === 409 || r.status === 422) throw new Error('Iemand anders heeft intussen opgeslagen. Herlaad de pagina en probeer opnieuw.');
+      if (!r.ok) throw new Error(`Opslaan mislukt (fout ${r.status}).`);
+      state.sha = (await r.json()).content.sha;
+      render();
+      say('Opgeslagen ✓ Binnen ongeveer 10 minuten live.');
+    } catch (e) { say(e.message, true); }
+    $('#save').disabled = false;
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
